@@ -150,15 +150,15 @@ with tab2:
             pci = calculate_pci(section_data)
             condition, color = classify_condition(pci)
             maintenance = get_maintenance_action(pci)
-            iri_col = None
-for col in section_data.columns:
-    if col.strip().lower().startswith('iri'):
-        iri_col = col
-        break
-
-iri = section_data[iri_col].mean() if iri_col else None
-
             
+            iri_col = None
+            for col in section_data.columns:
+                if col.strip().lower().startswith('iri'):
+                    iri_col = col
+                    break
+
+        iri = section_data[iri_col].mean() if iri_col else None
+
             results.append({
                 'Section ID': section,
                 'PCI': round(pci, 2),
