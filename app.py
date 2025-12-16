@@ -144,20 +144,20 @@ with tab2:
     if 'data' in st.session_state:
         df = st.session_state.data
         
-       results = []
+    results = []
 
-for section in df['Section ID'].unique():
-    section_data = df[df['Section ID'] == section]
-
-    pci = calculate_pci(section_data)
-    condition, color = classify_condition(pci)
-    maintenance = get_maintenance_action(pci)
-
-    iri_col = None
-    for col in section_data.columns:
-        if col.strip().lower().startswith('iri'):
-            iri_col = col
-            break
+    for section in df['Section ID'].unique():
+        section_data = df[df['Section ID'] == section]
+    
+        pci = calculate_pci(section_data)
+        condition, color = classify_condition(pci)
+        maintenance = get_maintenance_action(pci)
+    
+        iri_col = None
+        for col in section_data.columns:
+            if col.strip().lower().startswith('iri'):
+                iri_col = col
+                break
 
     iri = section_data[iri_col].mean() if iri_col else None
 
@@ -169,10 +169,8 @@ for section in df['Section ID'].unique():
         'Maintenance Action': maintenance
     })
 
-        
         results_df = pd.DataFrame(results)
-        
-        
+                
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Average PCI", f"{results_df['PCI'].mean():.1f}")
