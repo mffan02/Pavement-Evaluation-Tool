@@ -24,7 +24,12 @@ def calculate_pci(defects_df):
     if defects_df.empty:
         return 100
     
-    severity_weights = {'Low': 1, 'Medium': 3, 'High': 5}
+    severity_weights = {
+    'L': 1, 'Low': 1,
+    'M': 3, 'Medium': 3,
+    'H': 5, 'High': 5
+}
+
     defect_factors = {
         'Alligator Cracking': 8,
         'Linear Cracking': 4,
@@ -40,7 +45,9 @@ def calculate_pci(defects_df):
     for idx, row in defects_df.iterrows():
         defect_type = row.get('Defect Type', 'Other')
         severity = row.get('Severity', 'Low')
-        area_pct = row.get('Area Percentage (%)', 0)
+        area_pct = row.get('Area Percentage (%)', 
+           row.get('Area Affected (%)', 0))
+
         
         base_factor = defect_factors.get(defect_type, 3)
         severity_weight = severity_weights.get(severity, 1)
