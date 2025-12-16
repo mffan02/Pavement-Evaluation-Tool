@@ -7,23 +7,24 @@ import plotly.graph_objects as go
 from datetime import datetime
 import io
 
+# Set page config
 st.set_page_config(page_title="Pavement Condition Evaluation Tool", layout="wide")
 
-
+# Custom CSS
 st.markdown("""
 <style>
     .header {font-size: 2.5rem; font-weight: bold; color: #0066cc;}
 </style>
 """, unsafe_allow_html=True)
 
-
+# ============ FUNCTIONS ============
 
 def calculate_pci(defects_df):
     """Calculate Pavement Condition Index (PCI) from defects"""
     if defects_df.empty:
         return 100
     
-    
+    # Updated severity weights - accepts both short and long forms
     severity_weights = {
         'L': 1, 'Low': 1,
         'M': 3, 'Medium': 3,
@@ -45,7 +46,8 @@ def calculate_pci(defects_df):
     for idx, row in defects_df.iterrows():
         defect_type = row.get('Defect Type', 'Other')
         severity = row.get('Severity', 'Low')
-        area_pct = row.get('Area Percentage (%)', 0)
+        area_pct = row.get('Area Percentage (%)', 
+                   row.get('Area Affected (%)', 0))
         
         base_factor = defect_factors.get(defect_type, 3)
         severity_weight = severity_weights.get(severity, 1)
@@ -82,13 +84,13 @@ def get_maintenance_action(pci):
     else:
         return 'Reconstruction - Complete pavement renewal'
 
-
+# ============ MAIN APP ============
 
 st.markdown('<p class="header">🛣️ Digital Pavement Condition Evaluation Tool</p>', unsafe_allow_html=True)
 st.markdown("**District JKR Maintenance Division - Pavement Asset Management System**")
 st.markdown("---")
 
-
+# Sidebar
 with st.sidebar:
     st.header("📋 Instructions")
     st.info("""
@@ -116,10 +118,10 @@ with st.sidebar:
     }
     st.dataframe(pd.DataFrame(sample_data), use_container_width=True)
 
-
+# Main tabs
 tab1, tab2, tab3, tab4 = st.tabs(["📤 Upload Data", "📊 Analysis", "📈 Dashboard", "📄 Report"])
 
-
+# TAB 1: Upload
 with tab1:
     st.subheader("Upload Pavement Condition Data")
     
@@ -135,7 +137,7 @@ with tab1:
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
-
+# TAB 2: Analysis
 with tab2:
     st.subheader("Condition Analysis Results")
     
@@ -149,7 +151,7 @@ with tab2:
             condition, color = classify_condition(pci)
             maintenance = get_maintenance_action(pci)
             
-            
+            # Flexible IRI column reading - case insensitive
             iri_col = None
             for col in section_data.columns:
                 if col.strip().lower().startswith('iri'):
@@ -167,7 +169,7 @@ with tab2:
         
         results_df = pd.DataFrame(results)
         
-      
+        # Metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Average PCI", f"{results_df['PCI'].mean():.1f}")
@@ -186,7 +188,7 @@ with tab2:
     else:
         st.warning("⚠️ Please upload data first")
 
-
+# TAB 3: Dashboard
 with tab3:
     st.subheader("Visual Dashboard")
     
@@ -217,7 +219,7 @@ with tab3:
     else:
         st.warning("⚠️ Run analysis first")
 
-
+# TAB 4: Report
 with tab4:
     st.subheader("Technical Report")
     
