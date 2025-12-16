@@ -7,7 +7,6 @@ import plotly.graph_objects as go
 from datetime import datetime
 import io
 
-
 st.set_page_config(page_title="Pavement Condition Evaluation Tool", layout="wide")
 
 
@@ -24,12 +23,13 @@ def calculate_pci(defects_df):
     if defects_df.empty:
         return 100
     
+    
     severity_weights = {
-    'L': 1, 'Low': 1,
-    'M': 3, 'Medium': 3,
-    'H': 5, 'High': 5
-}
-
+        'L': 1, 'Low': 1,
+        'M': 3, 'Medium': 3,
+        'H': 5, 'High': 5
+    }
+    
     defect_factors = {
         'Alligator Cracking': 8,
         'Linear Cracking': 4,
@@ -45,9 +45,7 @@ def calculate_pci(defects_df):
     for idx, row in defects_df.iterrows():
         defect_type = row.get('Defect Type', 'Other')
         severity = row.get('Severity', 'Low')
-        area_pct = row.get('Area Percentage (%)', 
-           row.get('Area Affected (%)', 0))
-
+        area_pct = row.get('Area Percentage (%)', 0)
         
         base_factor = defect_factors.get(defect_type, 3)
         severity_weight = severity_weights.get(severity, 1)
@@ -99,9 +97,9 @@ with st.sidebar:
     1. Upload Excel file with columns:
        - Section ID
        - Defect Type
-       - Severity (Low/Medium/High)
+       - Severity (Low/Medium/High or L/M/H)
        - Area Percentage (%)
-       - IRI (optional)
+       - IRI (optional - case insensitive)
     
     2. View automatic calculations
     3. Download results
@@ -144,33 +142,32 @@ with tab2:
     if 'data' in st.session_state:
         df = st.session_state.data
         
-    results = []
-
-    for section in df['Section ID'].unique():
-        section_data = df[df['Section ID'] == section]
-    
-        pci = calculate_pci(section_data)
-        condition, color = classify_condition(pci)
-        maintenance = get_maintenance_action(pci)
-    
-        iri_col = None
-        for col in section_data.columns:
-            if col.strip().lower().startswith('iri'):
-                iri_col = col
-                break
-
-    iri = section_data[iri_col].mean() if iri_col else None
-
-    results.append({
-        'Section ID': section,
-        'PCI': round(pci, 2),
-        'Condition': condition,
-        'IRI': round(iri, 2) if iri is not None else 'N/A',
-        'Maintenance Action': maintenance
-    })
-
+        results = []
+        for section in df['Section ID'].unique():
+            section_data = df[df['Section ID'] == section]
+            pci = calculate_pci(section_data)
+            condition, color = classify_condition(pci)
+            maintenance = get_maintenance_action(pci)
+            
+            
+            iri_col = None
+            for col in section_data.columns:
+                if col.strip().lower().startswith('iri'):
+                    iri_col = col
+                    break
+            iri = section_data[iri_col].mean() if iri_col else None
+            
+            results.append({
+                'Section ID': section,
+                'PCI': round(pci, 2),
+                'Condition': condition,
+                'IRI': round(iri, 2) if iri else 'N/A',
+                'Maintenance Action': maintenance
+            })
+        
         results_df = pd.DataFrame(results)
-                
+        
+      
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Average PCI", f"{results_df['PCI'].mean():.1f}")
