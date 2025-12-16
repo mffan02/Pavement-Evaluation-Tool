@@ -144,28 +144,31 @@ with tab2:
     if 'data' in st.session_state:
         df = st.session_state.data
         
-        results = []
-        for section in df['Section ID'].unique():
-            section_data = df[df['Section ID'] == section]
-            pci = calculate_pci(section_data)
-            condition, color = classify_condition(pci)
-            maintenance = get_maintenance_action(pci)
-            
-            iri_col = None
-            for col in section_data.columns:
-                if col.strip().lower().startswith('iri'):
-                    iri_col = col
-                    break
+       results = []
 
-        iri = section_data[iri_col].mean() if iri_col else None
+for section in df['Section ID'].unique():
+    section_data = df[df['Section ID'] == section]
 
-            results.append({
-                'Section ID': section,
-                'PCI': round(pci, 2),
-                'Condition': condition,
-                'IRI': round(iri, 2) if iri else 'N/A',
-                'Maintenance Action': maintenance
-            })
+    pci = calculate_pci(section_data)
+    condition, color = classify_condition(pci)
+    maintenance = get_maintenance_action(pci)
+
+    iri_col = None
+    for col in section_data.columns:
+        if col.strip().lower().startswith('iri'):
+            iri_col = col
+            break
+
+    iri = section_data[iri_col].mean() if iri_col else None
+
+    results.append({
+        'Section ID': section,
+        'PCI': round(pci, 2),
+        'Condition': condition,
+        'IRI': round(iri, 2) if iri is not None else 'N/A',
+        'Maintenance Action': maintenance
+    })
+
         
         results_df = pd.DataFrame(results)
         
