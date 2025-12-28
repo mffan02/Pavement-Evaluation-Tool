@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -60,29 +59,62 @@ def calculate_pci(defects_df):
 
 def classify_condition(pci):
     """Classify pavement condition based on PCI"""
-    if pci >= 86:
+    if pci >= 85:
         return 'Very Good', '#2ecc71'
-    elif pci >= 71:
+    elif pci >= 70:
         return 'Good', '#3498db'
-    elif pci >= 56:
+    elif pci >= 55:
         return 'Fair', '#f39c12'
-    elif pci >= 41:
+    else:
         return 'Poor', '#e74c3c'
-    else:
-        return 'Very Poor', '#c0392b'
 
-def get_maintenance_action(pci):
-    """Recommend maintenance action based on PCI"""
-    if pci >= 86:
-        return 'Preventive Maintenance - Seal coat or light overlay'
-    elif pci >= 71:
-        return 'Routine Maintenance - Pothole repair, crack sealing'
-    elif pci >= 56:
-        return 'Corrective Maintenance - Mill and overlay, patching'
-    elif pci >= 41:
-        return 'Major Rehabilitation - Full depth reclaim, thick overlay'
+def classify_pci(pci):
+    """Classify PCI value into categories"""
+    if pci >= 85:
+        return "Very Good"
+    elif pci >= 70:
+        return "Good"
+    elif pci >= 55:
+        return "Fair"
     else:
-        return 'Reconstruction - Complete pavement renewal'
+        return "Poor"
+
+def classify_iri(iri):
+    """Classify IRI value into categories"""
+    if iri is None or pd.isna(iri):
+        return "N/A"
+    if iri <= 2.0:
+        return "Very Good"
+    elif iri <= 4.0:
+        return "Good"
+    elif iri <= 6.0:
+        return "Fair"
+    else:
+        return "Poor"
+
+def maintenance_decision(pci_class, iri_class):
+    """Determine maintenance action based on PCI and IRI classifications"""
+    if iri_class == "N/A":
+        # Fallback to PCI-only decision
+        if pci_class == "Very Good":
+            return "Routine/Preventive Maintenance (Crack Sealing)"
+        elif pci_class == "Good":
+            return "Routine Maintenance (Pothole Repair, Crack Sealing)"
+        elif pci_class == "Fair":
+            return "Corrective Maintenance (Mill and Overlay, Patching)"
+        else:
+            return "Major Rehabilitation (Full Depth Reclaim, Thick Overlay)"
+    
+    # Combined PCI and IRI decision
+    if pci_class == "Very Good" and iri_class == "Very Good":
+        return "Routine/Preventive Maintenance (Crack Sealing)"
+    if pci_class == "Very Good" and iri_class in ["Good", "Fair"]:
+        return "Minor Rehabilitation (Surface Treatment/Thin Overlay)"
+    if pci_class == "Good" and iri_class in ["Fair", "Poor"]:
+        return "Major Rehabilitation (Medium Overlay/Recycling)"
+    if pci_class in ["Fair", "Poor"] or iri_class == "Poor":
+        return "Reconstruction/Heavy Overlay (Structural Repair)"
+    return "Preventive Maintenance"
 
 # ============ MAIN APP ============
 
@@ -147,9 +179,11 @@ with tab2:
         results = []
         for section in df['Section ID'].unique():
             section_data = df[df['Section ID'] == section]
+            
+            # Calculate PCI
             pci = calculate_pci(section_data)
+            pci_class = classify_pci(pci)
             condition, color = classify_condition(pci)
-            maintenance = get_maintenance_action(pci)
             
             # Flexible IRI column reading - case insensitive
             iri_col = None
@@ -157,13 +191,20 @@ with tab2:
                 if col.strip().lower().startswith('iri'):
                     iri_col = col
                     break
+            
+            # Calculate IRI
             iri = section_data[iri_col].mean() if iri_col else None
+            iri_class = classify_iri(iri)
+            
+            # Determine maintenance action based on both PCI and IRI
+            maintenance = maintenance_decision(pci_class, iri_class)
             
             results.append({
                 'Section ID': section,
                 'PCI': round(pci, 2),
-                'Condition': condition,
+                'Condition': pci_class,
                 'IRI': round(iri, 2) if iri else 'N/A',
+                'IRI Classification': iri_class,
                 'Maintenance Action': maintenance
             })
         
@@ -172,14 +213,15 @@ with tab2:
         # Metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Average PCI", f"{results_df['PCI'].mean():.1f}")
+            avg_pci = results_df['PCI'].mean()
+            st.metric("Average PCI", f"{avg_pci:.1f}")
         with col2:
             st.metric("Sections Analyzed", len(results_df))
         with col3:
-            good_sections = len(results_df[results_df['PCI'] >= 71])
+            good_sections = len(results_df[results_df['Condition'].isin(['Very Good', 'Good'])])
             st.metric("Good/Excellent", f"{good_sections}/{len(results_df)}")
         with col4:
-            poor_sections = len(results_df[results_df['PCI'] < 56])
+            poor_sections = len(results_df[results_df['Condition'].isin(['Fair', 'Poor'])])
             st.metric("Fair/Poor", f"{poor_sections}/{len(results_df)}")
         
         st.markdown("---")
@@ -243,7 +285,7 @@ with tab4:
             st.markdown(f"""
             **{row['Section ID']}**
             - PCI: {row['PCI']} ({row['Condition']})
-            - IRI: {row['IRI']}
+            - IRI: {row['IRI']} ({row['IRI Classification']})
             - Action: {row['Maintenance Action']}
             """)
         
@@ -263,5 +305,3 @@ with tab4:
             st.download_button("📊 Download Excel", excel_buffer.getvalue(),
                              file_name=f"Results_{datetime.now().strftime('%Y%m%d')}.xlsx",
                              mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    else:
-        st.warning("⚠️ Complete analysis first")
