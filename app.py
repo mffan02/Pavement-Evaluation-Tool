@@ -19,7 +19,7 @@ st.markdown("""
 # ============ FUNCTIONS ============
 
 def calculate_pci(defects_df):
-    """Calculate Pavement Condition Index (PCI) from defects"""
+    """Calculate Pavement Condition Index (PCI) from defects - Standard Method"""
     if defects_df.empty:
         return 100
     
@@ -56,6 +56,37 @@ def calculate_pci(defects_df):
     
     pci = max(0, min(100, 100 - total_deduct_value))
     return pci
+
+def calculate_pci_simplified(section_df):
+    """
+    Simplified PCI model adapted for academic / JKR-style assessment
+    Uses direct penalty approach based on severity and affected area
+    """
+    if section_df.empty:
+        return 100
+    
+    base_pci = 100
+    severity_penalty = {
+        "L": 2,
+        "Low": 2,
+        "M": 5,
+        "Medium": 5,
+        "H": 10,
+        "High": 10
+    }
+    
+    total_penalty = 0
+    for _, row in section_df.iterrows():
+        severity = row.get("Severity", "Low")
+        # Try both column names for area
+        area = row.get("Area Affected (%)", 
+               row.get("Area Percentage (%)", 0))
+        
+        penalty = severity_penalty.get(severity, 2) * (area / 10)
+        total_penalty += penalty
+    
+    pci = base_pci - total_penalty
+    return max(0, round(pci, 0))
 
 def classify_condition(pci):
     """Classify pavement condition based on PCI"""
@@ -132,12 +163,20 @@ with st.sidebar:
        - Section ID
        - Defect Type
        - Severity (Low/Medium/High or L/M/H)
-       - Area Percentage (%)
+       - Area Percentage (%) or Area Affected (%)
        - IRI (optional - case insensitive)
     
     2. View automatic calculations
     3. Download results
     """)
+    
+    st.markdown("---")
+    st.subheader("⚙️ Calculation Method")
+    pci_method = st.radio(
+        "Select PCI Calculation:",
+        ["Standard Method", "Simplified Method (JKR)"],
+        help="Standard: Uses defect type factors\nSimplified: Direct penalty based on severity"
+    )
     
     st.markdown("---")
     st.subheader("📥 Sample Data Format")
