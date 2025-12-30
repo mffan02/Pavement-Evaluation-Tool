@@ -271,7 +271,7 @@ with tab2:
 
 # TAB 3: Dashboard
 with tab3:
-    st.subheader("Visual Dashboard")
+    st.subheader("IRI Performance Dashboard")
     
     if 'results' in st.session_state:
         results_df = st.session_state.results
@@ -279,26 +279,44 @@ with tab3:
         col1, col2 = st.columns(2)
         
         with col1:
-            fig_pci = px.bar(results_df, x='Section ID', y='PCI', 
-                            color='Condition', title='PCI by Section',
-                            color_discrete_map={
-                                'Very Good': '#2ecc71', 'Good': '#3498db',
-                                'Fair': '#f39c12', 'Poor': '#e74c3c', 'Very Poor': '#c0392b'
-                            })
-            fig_pci.add_hline(y=70, line_dash="dash", line_color="gray")
-            st.plotly_chart(fig_pci, use_container_width=True)
+            # Filter out N/A IRI values for the chart
+            iri_df = results_df[results_df['IRI'] != 'N/A'].copy()
+            if not iri_df.empty:
+                iri_df['IRI'] = pd.to_numeric(iri_df['IRI'], errors='coerce')
+                fig_iri = px.line(
+                    iri_df,
+                    x="Section ID",
+                    y="IRI",
+                    markers=True,
+                    title="International Roughness Index (IRI) per Road Section"
+                )
+                fig_iri.add_hline(y=4.0, line_dash="dash", line_color="red", annotation_text="JKR Threshold (4.0 m/km)")
+                fig_iri.update_layout(
+                    xaxis_title="Section ID",
+                    yaxis_title="IRI (m/km)",
+                    hovermode="x unified"
+                )
+                st.plotly_chart(fig_iri, use_container_width=True)
+            else:
+                st.warning("⚠️ No IRI data available to display")
         
         with col2:
-            condition_counts = results_df['Condition'].value_counts()
-            fig_pie = px.pie(values=condition_counts.values, names=condition_counts.index,
-                           title='Condition Distribution',
-                           color_discrete_map={
-                               'Very Good': '#2ecc71', 'Good': '#3498db',
-                               'Fair': '#f39c12', 'Poor': '#e74c3c', 'Very Poor': '#c0392b'
-                           })
+            iri_counts = results_df["IRI Classification"].value_counts()
+            fig_pie = px.pie(
+                values=iri_counts.values,
+                names=iri_counts.index,
+                title="IRI Condition Distribution",
+                color_discrete_map={
+                    'Very Good': '#2ecc71',
+                    'Good': '#3498db',
+                    'Fair': '#f39c12',
+                    'Poor': '#e74c3c',
+                    'N/A': '#95a5a6'
+                }
+            )
             st.plotly_chart(fig_pie, use_container_width=True)
     else:
-        st.warning("⚠️ Run analysis first")
+        st.warning("⚠️ Please upload and analyse data first")
 
 # TAB 4: Report
 with tab4:
