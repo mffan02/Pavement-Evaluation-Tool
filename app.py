@@ -18,6 +18,44 @@ st.markdown("""
 
 # ============ FUNCTIONS ============
 
+# PCI Parameters (From Excel/JKR Standards)
+DEFECT_WEIGHTS = {
+    "Longitudinal Crack": 1.0,
+    "Alligator (Fatigue) Crack": 1.6,
+    "Potholes": 2.2,
+    "Raveling": 1.2,
+    "Depression/Sag": 1.4,
+    "Patching (Failed)": 1.8,
+    "Bleeding/Flushing": 1.0,
+    "Rut/Rutting": 1.6
+}
+
+SEVERITY_FACTORS = {
+    "Low": 0.6,
+    "Medium": 1.0,
+    "High": 1.4
+}
+
+def calculate_pci_single(area, defect_type, severity):
+    """Calculate PCI for a single defect entry"""
+    weighting_factor = DEFECT_WEIGHTS.get(defect_type, 0)
+    severity_factor = SEVERITY_FACTORS.get(severity, 0)
+    # Deduct Value (DV) – Excel formula
+    dv = (area / 100) * weighting_factor * severity_factor * 100
+    pci = max(0, 100 - dv)
+    return round(pci, 2)
+
+def pci_condition(pci):
+    """Determine condition and maintenance based on PCI value"""
+    if pci >= 85:
+        return "Very Good", "Routine maintenance"
+    elif pci >= 70:
+        return "Good / Satisfactory", "Preventive maintenance"
+    elif pci >= 55:
+        return "Fair", "Surface treatment / Overlay"
+    else:
+        return "Poor", "Major rehabilitation / Reconstruction"
+
 def calculate_pci(defects_df):
     """Calculate Pavement Condition Index (PCI) from defects - Standard Method"""
     if defects_df.empty:
@@ -190,7 +228,7 @@ with st.sidebar:
     st.dataframe(pd.DataFrame(sample_data), use_container_width=True)
 
 # Main tabs
-tab1, tab2, tab3, tab4 = st.tabs(["📤 Upload Data", "📊 Analysis", "📈 Dashboard", "📄 Report"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📤 Upload Data", "🧮 PCI Calculator", "📊 Analysis", "📈 Dashboard", "📄 Report"])
 
 # TAB 1: Upload
 with tab1:
@@ -208,7 +246,194 @@ with tab1:
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
-# TAB 2: Analysis
+# TAB 2: PCI Calculator
+# TAB 3: Analysis (previously TAB 2)
+with tab3:
+    st.subheader("🧮 Pavement Condition Index (PCI) Calculator")
+    st.markdown("**Single Defect PCI Evaluation Tool**")
+    st.markdown("---")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("#### Input Parameters")
+        
+        area = st.number_input(
+            "Defect Area (%)", 
+            min_value=0.0, 
+            max_value=100.0, 
+            value=10.0,
+            step=1.0,
+            help="Enter the percentage of pavement area affected by the defect"
+        )
+        
+        defect_type = st.selectbox(
+            "Defect Type",
+            list(DEFECT_WEIGHTS.keys()),
+            help="Select the type of pavement defect"
+        )
+        
+        severity = st.selectbox(
+            "Severity Level",
+            list(SEVERITY_FACTORS.keys()),
+            help="Low: Minor defects | Medium: Moderate defects | High: Severe defects"
+        )
+        
+        st.markdown("---")
+        
+        if st.button("🔍 Calculate PCI", type="primary", use_container_width=True):
+            pci_value = calculate_pci_single(area, defect_type, severity)
+            condition, maintenance = pci_condition(pci_value)
+            
+            # Store in session state for charts
+            st.session_state.pci_calc = {
+                'pci': pci_value,
+                'condition': condition,
+                'maintenance': maintenance,
+                'area': area,
+                'defect': defect_type,
+                'severity': severity
+            }
+    
+    with col2:
+        st.markdown("#### Weight Factors")
+        st.markdown("**Defect Weights:**")
+        for defect, weight in DEFECT_WEIGHTS.items():
+            st.text(f"• {defect}: {weight}")
+        
+        st.markdown("**Severity Factors:**")
+        for sev, factor in SEVERITY_FACTORS.items():
+            st.text(f"• {sev}: {factor}")
+    
+    # Display results if calculation has been done
+    if 'pci_calc' in st.session_state:
+        calc = st.session_state.pci_calc
+        
+        st.markdown("---")
+        st.markdown("### 📊 Results")
+        
+        # Metrics display
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("PCI Value", f"{calc['pci']}", delta=None)
+        
+        with col2:
+            # Color code the condition
+            condition_color = {
+                "Very Good": "🟢",
+                "Good / Satisfactory": "🔵", 
+                "Fair": "🟠",
+                "Poor": "🔴"
+            }
+            icon = condition_color.get(calc['condition'], "⚪")
+            st.metric("Condition", f"{icon} {calc['condition']}")
+        
+        with col3:
+            st.metric("Area Affected", f"{calc['area']}%")
+        
+        # Maintenance recommendation
+        st.info(f"**Recommended Maintenance:** {calc['maintenance']}")
+        
+        # Visual charts
+        st.markdown("---")
+        st.markdown("### 📈 PCI Visualization")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # PCI Value Chart
+            pci_data = pd.DataFrame({
+                "Metric": ["Current PCI"],
+                "Value": [calc['pci']]
+            })
+            
+            fig_pci_single = px.bar(
+                pci_data,
+                x="Metric",
+                y="Value",
+                title=f"Calculated PCI: {calc['pci']}",
+                color="Value",
+                color_continuous_scale=["red", "orange", "yellow", "green"],
+                range_color=[0, 100]
+            )
+            fig_pci_single.update_layout(showlegend=False, yaxis_range=[0, 100])
+            fig_pci_single.add_hline(y=85, line_dash="dash", line_color="green", annotation_text="Very Good")
+            fig_pci_single.add_hline(y=70, line_dash="dash", line_color="blue", annotation_text="Good")
+            fig_pci_single.add_hline(y=55, line_dash="dash", line_color="orange", annotation_text="Fair")
+            st.plotly_chart(fig_pci_single, use_container_width=True)
+        
+        with col2:
+            # PCI Condition Bands
+            pci_bands = pd.DataFrame({
+                "Condition": ["Very Good (85-100)", "Good (70-84)", "Fair (55-69)", "Poor (0-54)"],
+                "Lower Bound": [85, 70, 55, 0],
+                "Upper Bound": [100, 84, 69, 54],
+                "Color": ["#2ecc71", "#3498db", "#f39c12", "#e74c3c"]
+            })
+            
+            fig_bands = go.Figure()
+            
+            # Add current PCI marker
+            fig_bands.add_trace(go.Scatter(
+                x=[calc['pci']],
+                y=[1],
+                mode='markers',
+                marker=dict(size=20, color='red', symbol='diamond'),
+                name='Current PCI',
+                showlegend=True
+            ))
+            
+            # Add condition bands
+            for idx, row in pci_bands.iterrows():
+                fig_bands.add_shape(
+                    type="rect",
+                    x0=row["Lower Bound"], x1=row["Upper Bound"],
+                    y0=0, y1=2,
+                    fillcolor=row["Color"],
+                    opacity=0.3,
+                    line_width=0
+                )
+                fig_bands.add_annotation(
+                    x=(row["Lower Bound"] + row["Upper Bound"]) / 2,
+                    y=1.5,
+                    text=row["Condition"].split()[0],
+                    showarrow=False,
+                    font=dict(size=10)
+                )
+            
+            fig_bands.update_layout(
+                title="PCI Position on Condition Scale",
+                xaxis_title="PCI Value",
+                xaxis_range=[0, 100],
+                yaxis_visible=False,
+                height=400
+            )
+            
+            st.plotly_chart(fig_bands, use_container_width=True)
+        
+        # Summary table
+        st.markdown("---")
+        st.markdown("### 📋 Calculation Summary")
+        
+        summary_df = pd.DataFrame({
+            "Parameter": ["Defect Type", "Severity Level", "Area Affected", "Defect Weight", "Severity Factor", "Deduct Value", "PCI Score", "Condition Class", "Maintenance Action"],
+            "Value": [
+                calc['defect'],
+                calc['severity'],
+                f"{calc['area']}%",
+                DEFECT_WEIGHTS.get(calc['defect'], 0),
+                SEVERITY_FACTORS.get(calc['severity'], 0),
+                f"{100 - calc['pci']:.2f}",
+                calc['pci'],
+                calc['condition'],
+                calc['maintenance']
+            ]
+        })
+        
+        st.dataframe(summary_df, use_container_width=True, hide_index=True)
+
+# TAB 3: Analysis (previously TAB 2)
 with tab2:
     st.subheader("Condition Analysis Results")
     
@@ -269,8 +494,8 @@ with tab2:
     else:
         st.warning("⚠️ Please upload data first")
 
-# TAB 3: Dashboard
-with tab3:
+# TAB 4: Dashboard (previously TAB 3)
+with tab4:
     st.subheader("IRI Performance Dashboard")
     
     if 'results' in st.session_state:
@@ -318,8 +543,8 @@ with tab3:
     else:
         st.warning("⚠️ Please upload and analyse data first")
 
-# TAB 4: Report
-with tab4:
+# TAB 5: Report (previously TAB 4)
+with tab5:
     st.subheader("Technical Report")
     
     if 'results' in st.session_state:
