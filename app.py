@@ -32,12 +32,44 @@ DEFECT_WEIGHTS = {
 
 SEVERITY_FACTORS = {
     "Low": 0.6,
+    "L": 0.6,
     "Medium": 1.0,
-    "High": 1.4
+    "M": 1.0,
+    "High": 1.4,
+    "H": 1.4
 }
 
+def calculate_pci_from_excel(section_df):
+    """
+    Excel-based PCI calculation:
+    DV = (Area/100) * Weighting Factor * Severity Factor * 100
+    PCI = 100 - ΣDV
+    
+    This matches the Excel formula exactly.
+    """
+    total_dv = 0
+
+    for _, row in section_df.iterrows():
+        # Get area - try both column names
+        area = row.get("Area Percentage (%)",
+               row.get("Area Affected (%)", 0))
+
+        defect = row.get("Defect Type", "")
+        severity = row.get("Severity", "")
+
+        # Get weights and factors
+        wf = DEFECT_WEIGHTS.get(defect, 0)
+        sf = SEVERITY_FACTORS.get(severity, 0)
+
+        # Calculate deduct value using Excel formula
+        dv = (area / 100) * wf * sf * 100
+        total_dv += dv
+
+    pci = max(0, round(100 - total_dv, 2))
+    return pci
+
 def calculate_pci_single(area, defect_type, severity):
-    """Calculate PCI for a single defect entry"""
+    """Calculate PCI for a single defect entry (used in PCI Calculator tab)"""
     weighting_factor = DEFECT_WEIGHTS.get(defect_type, 0)
     severity_factor = SEVERITY_FACTORS.get(severity, 0)
     # Deduct Value (DV) – Excel formula
@@ -57,74 +89,20 @@ def pci_condition(pci):
         return "Poor", "Major rehabilitation / Reconstruction"
 
 def calculate_pci(defects_df):
-    """Calculate Pavement Condition Index (PCI) from defects - Standard Method"""
-    if defects_df.empty:
-        return 100
-    
-    # Updated severity weights - accepts both short and long forms
-    severity_weights = {
-        'L': 1, 'Low': 1,
-        'M': 3, 'Medium': 3,
-        'H': 5, 'High': 5
-    }
-    
-    defect_factors = {
-        'Alligator Cracking': 8,
-        'Linear Cracking': 4,
-        'Potholes': 9,
-        'Rutting': 5,
-        'Raveling': 3,
-        'Bleeding': 2,
-        'Other': 3
-    }
-    
-    total_deduct_value = 0
-    
-    for idx, row in defects_df.iterrows():
-        defect_type = row.get('Defect Type', 'Other')
-        severity = row.get('Severity', 'Low')
-        area_pct = row.get('Area Percentage (%)', 
-                   row.get('Area Affected (%)', 0))
-        
-        base_factor = defect_factors.get(defect_type, 3)
-        severity_weight = severity_weights.get(severity, 1)
-        
-        deduct = (base_factor * severity_weight * area_pct) / 100
-        total_deduct_value += deduct
-    
-    pci = max(0, min(100, 100 - total_deduct_value))
-    return pci
+    """
+    DEPRECATED - Old calculation method
+    Use calculate_pci_from_excel() instead for Excel-compatible results
+    """
+    # This function is kept for backwards compatibility but should not be used
+    return calculate_pci_from_excel(defects_df)
 
 def calculate_pci_simplified(section_df):
     """
-    Simplified PCI model adapted for academic / JKR-style assessment
-    Uses direct penalty approach based on severity and affected area
+    DEPRECATED - Old simplified method
+    Use calculate_pci_from_excel() instead for Excel-compatible results
     """
-    if section_df.empty:
-        return 100
-    
-    base_pci = 100
-    severity_penalty = {
-        "L": 2,
-        "Low": 2,
-        "M": 5,
-        "Medium": 5,
-        "H": 10,
-        "High": 10
-    }
-    
-    total_penalty = 0
-    for _, row in section_df.iterrows():
-        severity = row.get("Severity", "Low")
-        # Try both column names for area
-        area = row.get("Area Affected (%)", 
-               row.get("Area Percentage (%)", 0))
-        
-        penalty = severity_penalty.get(severity, 2) * (area / 10)
-        total_penalty += penalty
-    
-    pci = base_pci - total_penalty
-    return max(0, round(pci, 0))
+    # This function is kept for backwards compatibility but should not be used
+    return calculate_pci_from_excel(section_df)
 
 def classify_condition(pci):
     """Classify pavement condition based on PCI"""
@@ -210,11 +188,14 @@ with st.sidebar:
     
     st.markdown("---")
     st.subheader("⚙️ Calculation Method")
-    pci_method = st.radio(
-        "Select PCI Calculation:",
-        ["Standard Method", "Simplified Method (JKR)"],
-        help="Standard: Uses defect type factors\nSimplified: Direct penalty based on severity"
-    )
+    st.info("""
+    **Using Excel-Based PCI Formula:**
+    
+    DV = (Area/100) × Weight × Severity × 100
+    PCI = 100 - ΣDV
+    
+    This matches your Excel calculations exactly.
+    """)
     
     st.markdown("---")
     st.subheader("📥 Sample Data Format")
@@ -496,14 +477,68 @@ with tab2:
 
 # TAB 4: Dashboard (previously TAB 3)
 with tab4:
-    st.subheader("IRI Performance Dashboard")
+    st.subheader("📈 Pavement Performance Dashboard (PCI & IRI)")
     
     if 'results' in st.session_state:
         results_df = st.session_state.results
         
+        # Create two columns for side-by-side charts
         col1, col2 = st.columns(2)
         
+        # LEFT COLUMN: PCI CHARTS
         with col1:
+            st.markdown("### 🟢 Pavement Condition Index (PCI)")
+            
+            # PCI Line Chart
+            fig_pci = px.line(
+                results_df,
+                x="Section ID",
+                y="PCI",
+                markers=True,
+                title="PCI per Road Section"
+            )
+            
+            # PCI Thresholds (JKR / Excel based)
+            fig_pci.add_hline(y=85, line_dash="dash", line_color="green",
+                              annotation_text="Very Good (≥85)")
+            fig_pci.add_hline(y=70, line_dash="dash", line_color="blue",
+                              annotation_text="Good (70–84)")
+            fig_pci.add_hline(y=55, line_dash="dash", line_color="orange",
+                              annotation_text="Fair (55–69)")
+            
+            fig_pci.update_layout(
+                yaxis_title="PCI",
+                xaxis_title="Section ID",
+                yaxis_range=[0, 100],
+                hovermode="x unified"
+            )
+            
+            st.plotly_chart(fig_pci, use_container_width=True)
+            
+            # PCI Distribution Pie Chart
+            st.markdown("#### PCI Condition Distribution")
+            pci_counts = results_df["Condition"].value_counts()
+            
+            fig_pci_pie = px.pie(
+                values=pci_counts.values,
+                names=pci_counts.index,
+                title="PCI Classification Breakdown",
+                color=pci_counts.index,
+                color_discrete_map={
+                    'Very Good': '#2ecc71',
+                    'Good / Satisfactory': '#3498db',
+                    'Good': '#3498db',
+                    'Fair': '#f39c12',
+                    'Poor': '#e74c3c'
+                }
+            )
+            
+            st.plotly_chart(fig_pci_pie, use_container_width=True)
+        
+        # RIGHT COLUMN: IRI CHARTS
+        with col2:
+            st.markdown("### 🔵 International Roughness Index (IRI)")
+            
             # Filter out N/A IRI values for the chart
             iri_df = results_df[results_df['IRI'] != 'N/A'].copy()
             if not iri_df.empty:
@@ -513,9 +548,10 @@ with tab4:
                     x="Section ID",
                     y="IRI",
                     markers=True,
-                    title="International Roughness Index (IRI) per Road Section"
+                    title="IRI per Road Section"
                 )
-                fig_iri.add_hline(y=4.0, line_dash="dash", line_color="red", annotation_text="JKR Threshold (4.0 m/km)")
+                fig_iri.add_hline(y=4.0, line_dash="dash", line_color="red", 
+                                annotation_text="JKR Threshold (4.0 m/km)")
                 fig_iri.update_layout(
                     xaxis_title="Section ID",
                     yaxis_title="IRI (m/km)",
@@ -524,13 +560,14 @@ with tab4:
                 st.plotly_chart(fig_iri, use_container_width=True)
             else:
                 st.warning("⚠️ No IRI data available to display")
-        
-        with col2:
+            
+            # IRI Distribution Pie Chart
+            st.markdown("#### IRI Condition Distribution")
             iri_counts = results_df["IRI Classification"].value_counts()
-            fig_pie = px.pie(
+            fig_iri_pie = px.pie(
                 values=iri_counts.values,
                 names=iri_counts.index,
-                title="IRI Condition Distribution",
+                title="IRI Classification Breakdown",
                 color_discrete_map={
                     'Very Good': '#2ecc71',
                     'Good': '#3498db',
@@ -539,7 +576,44 @@ with tab4:
                     'N/A': '#95a5a6'
                 }
             )
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_iri_pie, use_container_width=True)
+        
+        # Summary Statistics Below Charts
+        st.markdown("---")
+        st.markdown("### 📊 Network Summary Statistics")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            avg_pci = results_df['PCI'].mean()
+            st.metric("Average PCI", f"{avg_pci:.1f}", 
+                     delta=f"{avg_pci - 70:.1f}" if avg_pci < 70 else None,
+                     delta_color="inverse" if avg_pci < 70 else "normal")
+        
+        with col2:
+            good_pci = len(results_df[results_df['PCI'] >= 70])
+            pct_good = (good_pci / len(results_df) * 100) if len(results_df) > 0 else 0
+            st.metric("Good/Very Good PCI", f"{good_pci}/{len(results_df)}", f"{pct_good:.0f}%")
+        
+        with col3:
+            # Calculate average IRI for sections with data
+            iri_with_data = results_df[results_df['IRI'] != 'N/A']
+            if not iri_with_data.empty:
+                avg_iri = pd.to_numeric(iri_with_data['IRI'], errors='coerce').mean()
+                st.metric("Average IRI", f"{avg_iri:.2f} m/km",
+                         delta=f"{avg_iri - 4.0:.2f}" if avg_iri > 4.0 else None,
+                         delta_color="inverse" if avg_iri > 4.0 else "normal")
+            else:
+                st.metric("Average IRI", "N/A")
+        
+        with col4:
+            poor_sections = len(results_df[
+                (results_df['Condition'] == 'Poor') | 
+                (results_df['IRI Classification'] == 'Poor')
+            ])
+            st.metric("Sections Needing Urgent Action", poor_sections,
+                     delta=f"{poor_sections} urgent" if poor_sections > 0 else "0 urgent")
+    
     else:
         st.warning("⚠️ Please upload and analyse data first")
 
