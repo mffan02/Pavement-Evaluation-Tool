@@ -228,76 +228,8 @@ with tab1:
             st.error(f"Error reading file: {e}")
 
 # TAB 2: PCI Calculator
-# TAB 3: Analysis
-with tab3:
-    st.subheader("Condition Analysis Results")
-    
-    if 'data' in st.session_state:
-        df = st.session_state.data
-        
-        # Show calculation method info
-        st.info("📊 Using **Excel-Based PCI Formula**: PCI = 100 - Σ[(Area/100) × Weight × Severity × 100]")
-        
-        results = []
-        for section in df['Section ID'].unique():
-            section_data = df[df['Section ID'] == section]
-            
-            # Calculate PCI using Excel-based formula
-            pci = calculate_pci_from_excel(section_data)
-            
-            # Debug output (you can comment this out after verification)
-            st.write(f"🔍 DEBUG: Section {section} → PCI = {pci}")
-            
-            pci_class = classify_pci(pci)
-            condition, color = classify_condition(pci)
-            
-            # Flexible IRI column reading - case insensitive
-            iri_col = None
-            for col in section_data.columns:
-                if col.strip().lower().startswith('iri'):
-                    iri_col = col
-                    break
-            
-            # Calculate IRI
-            iri = section_data[iri_col].mean() if iri_col else None
-            iri_class = classify_iri(iri)
-            
-            # Determine maintenance action based on both PCI and IRI
-            maintenance = maintenance_decision(pci_class, iri_class)
-            
-            results.append({
-                'Section ID': section,
-                'PCI': round(pci, 2),
-                'Condition': pci_class,
-                'IRI': round(iri, 2) if iri else 'N/A',
-                'IRI Classification': iri_class,
-                'Maintenance Action': maintenance
-            })
-        
-        results_df = pd.DataFrame(results)
-        
-        # Metrics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            avg_pci = results_df['PCI'].mean()
-            st.metric("Average PCI", f"{avg_pci:.1f}")
-        with col2:
-            st.metric("Sections Analyzed", len(results_df))
-        with col3:
-            good_sections = len(results_df[results_df['Condition'].isin(['Very Good', 'Good'])])
-            st.metric("Good/Excellent", f"{good_sections}/{len(results_df)}")
-        with col4:
-            poor_sections = len(results_df[results_df['Condition'].isin(['Fair', 'Poor'])])
-            st.metric("Fair/Poor", f"{poor_sections}/{len(results_df)}")
-        
-        st.markdown("---")
-        st.dataframe(results_df, use_container_width=True)
-        st.session_state.results = results_df
-    else:
-        st.warning("⚠️ Please upload data first")
-
-# TAB 4: Dashboard
-with tab4:
+# TAB 3: Analysis (previously TAB 2)
+with tab2:
     st.subheader("🧮 Pavement Condition Index (PCI) Calculator")
     st.markdown("**Single Defect PCI Evaluation Tool**")
     st.markdown("---")
@@ -483,7 +415,7 @@ with tab4:
         st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
 # TAB 3: Analysis (previously TAB 2)
-with tab2:
+with tab3:
     st.subheader("Condition Analysis Results")
     
     if 'data' in st.session_state:
@@ -543,7 +475,7 @@ with tab2:
     else:
         st.warning("⚠️ Please upload data first")
 
-# TAB 4: Dashboard
+# TAB 4: Dashboard (previously TAB 3)
 with tab4:
     st.subheader("📈 Pavement Performance Dashboard (PCI & IRI)")
     
@@ -685,7 +617,7 @@ with tab4:
     else:
         st.warning("⚠️ Please upload and analyse data first")
 
-# TAB 5: Report
+# TAB 5: Report (previously TAB 4)
 with tab5:
     st.subheader("Technical Report")
     
