@@ -467,8 +467,8 @@ with tab3:
                 'Condition': pci_class,
                 'IRI': round(iri, 2) if iri else 'N/A',
                 'IRI Classification': iri_class,
-                'IRI Recommended Maintenance': iri_action,
-                'Maintenance Action (PCI + IRI)': maintenance
+                'IRI Maintenance Recommendation': iri_action,
+                'PCI Maintenance Recommendation': maintenance
             })
         
         results_df = pd.DataFrame(results)
@@ -665,8 +665,8 @@ with tab5:
             **{row['Section ID']}**
             - PCI: {row['PCI']} ({row['Condition']})
             - IRI: {row['IRI']} ({row['IRI Classification']})
-            - IRI Maintenance: {row['IRI Recommended Maintenance']}
-            - Final Action (PCI + IRI): {row['Maintenance Action (PCI + IRI)']}
+            - IRI Maintenance Recommendation: {row['IRI Maintenance Recommendation']}
+            - PCI Maintenance Recommendation: {row['PCI Maintenance Recommendation']}
             """)
         
         st.markdown("---")
