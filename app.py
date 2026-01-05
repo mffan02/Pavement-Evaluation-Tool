@@ -127,17 +127,34 @@ def classify_pci(pci):
         return "Poor"
 
 def classify_iri(iri):
-    """Classify IRI value into categories"""
+    """
+    Classify IRI value based on Excel / JKR reference
+    """
     if iri is None or pd.isna(iri):
         return "N/A"
-    if iri <= 2.0:
+    if iri < 2:
         return "Very Good"
-    elif iri <= 4.0:
+    elif 2 <= iri < 3:
         return "Good"
-    elif iri <= 6.0:
+    elif 3 <= iri < 4:
         return "Fair"
     else:
         return "Poor"
+
+def iri_maintenance(iri_class):
+    """
+    Recommended maintenance based on IRI classification (Excel reference)
+    """
+    if iri_class == "Very Good":
+        return "Routine maintenance"
+    elif iri_class == "Good":
+        return "Preventive maintenance (localized patching/leveling)"
+    elif iri_class == "Fair":
+        return "Surface treatment / thin overlay"
+    elif iri_class == "Poor":
+        return "Structural overlay / rehabilitation"
+    else:
+        return "N/A"
 
 def maintenance_decision(pci_class, iri_class):
     """Determine maintenance action based on PCI and IRI classifications"""
@@ -228,7 +245,6 @@ with tab1:
             st.error(f"Error reading file: {e}")
 
 # TAB 2: PCI Calculator
-# TAB 3: Analysis (previously TAB 2)
 with tab2:
     st.subheader("🧮 Pavement Condition Index (PCI) Calculator")
     st.markdown("**Single Defect PCI Evaluation Tool**")
@@ -414,7 +430,7 @@ with tab2:
         
         st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
-# TAB 3: Analysis (previously TAB 2)
+# TAB 3: Analysis
 with tab3:
     st.subheader("Condition Analysis Results")
     
@@ -440,8 +456,9 @@ with tab3:
             # Calculate IRI
             iri = section_data[iri_col].mean() if iri_col else None
             iri_class = classify_iri(iri)
+            iri_action = iri_maintenance(iri_class)
             
-            # Determine maintenance action based on both PCI and IRI
+            # Combined PCI + IRI decision (existing logic)
             maintenance = maintenance_decision(pci_class, iri_class)
             
             results.append({
@@ -450,7 +467,8 @@ with tab3:
                 'Condition': pci_class,
                 'IRI': round(iri, 2) if iri else 'N/A',
                 'IRI Classification': iri_class,
-                'Maintenance Action': maintenance
+                'IRI Recommended Maintenance': iri_action,
+                'Maintenance Action (PCI + IRI)': maintenance
             })
         
         results_df = pd.DataFrame(results)
@@ -475,7 +493,7 @@ with tab3:
     else:
         st.warning("⚠️ Please upload data first")
 
-# TAB 4: Dashboard (previously TAB 3)
+# TAB 4: Dashboard
 with tab4:
     st.subheader("📈 Pavement Performance Dashboard (PCI & IRI)")
     
@@ -550,8 +568,13 @@ with tab4:
                     markers=True,
                     title="IRI per Road Section"
                 )
-                fig_iri.add_hline(y=4.0, line_dash="dash", line_color="red", 
-                                annotation_text="JKR Threshold (4.0 m/km)")
+                # Updated IRI thresholds
+                fig_iri.add_hline(y=2.0, line_dash="dash", line_color="green", 
+                                annotation_text="Very Good (<2.0)")
+                fig_iri.add_hline(y=3.0, line_dash="dash", line_color="blue", 
+                                annotation_text="Good (2.0-3.0)")
+                fig_iri.add_hline(y=4.0, line_dash="dash", line_color="orange", 
+                                annotation_text="Fair (3.0-4.0)")
                 fig_iri.update_layout(
                     xaxis_title="Section ID",
                     yaxis_title="IRI (m/km)",
@@ -617,7 +640,7 @@ with tab4:
     else:
         st.warning("⚠️ Please upload and analyse data first")
 
-# TAB 5: Report (previously TAB 4)
+# TAB 5: Report
 with tab5:
     st.subheader("Technical Report")
     
@@ -642,7 +665,8 @@ with tab5:
             **{row['Section ID']}**
             - PCI: {row['PCI']} ({row['Condition']})
             - IRI: {row['IRI']} ({row['IRI Classification']})
-            - Action: {row['Maintenance Action']}
+            - IRI Maintenance: {row['IRI Recommended Maintenance']}
+            - Final Action (PCI + IRI): {row['Maintenance Action (PCI + IRI)']}
             """)
         
         st.markdown("---")
@@ -661,3 +685,5 @@ with tab5:
             st.download_button("📊 Download Excel", excel_buffer.getvalue(),
                              file_name=f"Results_{datetime.now().strftime('%Y%m%d')}.xlsx",
                              mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    else:
+        st.warning("⚠️ Please upload and analyse data first")
